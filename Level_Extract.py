@@ -12,24 +12,8 @@ import uuid
 import re
 
 def Generate_GUID(): # Код для генерации особого вида UUID (GUID)
-    # Версия на C++: https://gist.github.com/fernandomv3/46a6d7656f50ee8d39dc (Закомментированный код ниже — это версия для Python)
-    # CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
-    # guid_chars = [''] * 36
-    # guid_chars[8] = guid_chars[13] = guid_chars[18] = guid_chars[23] = '-'
-    # guid_chars[14] = '4'
-    # rnd = 0
-    # for i in range(36):
-        # if i not in (8, 13, 18, 14, 23):
-            # if rnd <= 0x02:
-                # rnd = 0x2000000 + (random.randint(1, 9999999) * random.randint(1, 9999999))
-            # rnd >>= 4
-            # if i == 19:
-                # index = ((rnd & 0xf) & 0x3) | 0x8
-            # else:
-                # index = rnd & 0xf
-            # guid_chars[i] = CHARS[index]
-    # return "{" + ''.join(guid_chars) + "}"
-    return "{" + str(uuid.uuid4()).upper() + "}" # В качестве альтернативы можно использовать встроенный модуль "uuid" Python
+    # Версия на C++: https://gist.github.com/fernandomv3/46a6d7656f50ee8d39dc
+    return "{" + str(uuid.uuid4()).upper() + "}" # В качестве альтернативы можно использовать встроенный модуль "uuid"
 
 def Generate_GUID_from_GUID64(GUID64): # Конвертируем GUID64 в особый UUID (GUID) для CryEngine
     return "{" + f"{GUID64[8:]}-{GUID64[4:8]}-{GUID64[0:4]}-{GUID64[0:4]}-{GUID64[8:]}{GUID64[0:4]}" + "}"
@@ -37,7 +21,7 @@ def Generate_GUID_from_GUID64(GUID64): # Конвертируем GUID64 в ос
 def Cache_the_GUID(Mission_Mission0): # Кэшируем значения: EntityId, GUID64 и GUID для быстрого поиска и использования в сопоставлении Entity в дальнейшем
     print('- The process of caching GUID values has begun. The duration of the process depends on the size of the level...')
     with open('GUID_Cache.xml', 'w', encoding='utf-8') as f:
-        f.write('<DataBase Name="Caching of [EntityId], [GUID64], and [GUID] values for matching entities.">\n\t<Values>\n\t</Values>\n</DataBase>')
+        f.write('<DataBase Description="Caching of [EntityId], [GUID64], and [GUID] values for matching entities.">\n\t<Values>\n\t</Values>\n</DataBase>')
     GUID_Cache = ET.parse('GUID_Cache.xml')
     GUID_Cache_root = GUID_Cache.getroot()
     Values = GUID_Cache_root.find('Values')
@@ -85,6 +69,9 @@ def Search_Archetype_GUID(Library, Archetype):
                 else:
                     print(f"⚠️ [{Archetype}] was not found in the database!")
                     return "{00000000-0000-0000-0000-000000000000}"
+    else:
+        print(f"⚠️ [{Archetype}] was not found in the database!")
+        return "{00000000-0000-0000-0000-000000000000}"
 
 def Coordinate_Subtraction(pos, point):
     coords1 = list(map(float, pos.split(',')))
@@ -121,7 +108,7 @@ def Write_to_LYR(Name_LYR, New_Object, NameLevel):
     ET.indent(tree, space='\t', level=0)
     tree.write(f'{NameLevel}\\Setting\\Layers\\{Name_LYR}.lyr', encoding='utf-8', xml_declaration=True)
 
-def Processing_the_Entities_Array(Entities, NameLevel):
+def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
     for Entity in Entities:
         New_Object = ET.Element('Object')
         for attr_name, attr_value in Entity.attrib.items():
@@ -242,6 +229,13 @@ def Processing_the_Entities_Array(Entities, NameLevel):
             New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
         elif Entity.get('EntityClass') in ["GeomEntity", "ReverbVolume", "SoundMoodVolume", "SoundSpot", "MusicMoodSelector", "MusicEndTheme", "MusicLogicTrigger", "AmbientVolume", "MusicPlayPattern", "SoundEventSpot", "RandomSoundVolume", "MusicThemeSelector", "MusicStinger", "Dialog", "AIPathPoint", "NavigationSeedPoint", "AIAnchor", "TagPoint", "SmartObject"]:
             New_Object.set('Type', Entity.get('EntityClass'))
+        elif Entity.get('EntityClass') == "AISpawner":
+            Properties = Entity.find('Properties')
+            SpawnerPreset = Properties.get('SpawnerPreset')
+            for Preset in AI_Spawners_Presets:
+                if Preset.get('name') == SpawnerPreset:
+                    Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
+                    break
         else:
             New_Object.set('Type', 'Entity')
         New_Object.set('Id', Search_GUID(GUID_Cache, Entity.get('EntityId')))
@@ -439,22 +433,56 @@ def Extract_LightSettings(Mission_Mission0, NameLevel):
     else:
         print('- The process of extracting a file of the [LightSettings.lgt] was interrupted due to lack of necessary data.')
 
+def Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, NameLevel):
+    print('- The file creation process has started [Preload_Library.xml]...')
+    for ParticlesLibrary in LevelData.findall('ParticlesLibrary/Library'):
+        #print(ParticlesLibrary.get('Name'))
+        Particles_Library.append(ParticlesLibrary.get('Name'))
+    for GameTokensLibrary in LevelData.findall('GameTokensLibraryReferences/Library'):
+        #print(GameTokensLibrary.get('Name'))
+        GameTokens_Library.append(GameTokensLibrary.get('Name'))
+    with open(f'{NameLevel}\\Setting\\Preload_Library.xml', 'w', encoding='utf-8') as f:
+        f.write('<DataBase Description="It contains the names of libraries that must be imported before importing layers.">\n\t<EntityLibrary>\n\t</EntityLibrary>\n\t<ParticlesLibrary>\n\t</ParticlesLibrary>\n\t<GameTokensLibrary>\n\t</GameTokensLibrary>\n</DataBase>')
+    Preload_Library = ET.parse(f'{NameLevel}\\Setting\\Preload_Library.xml')
+    Preload_Library_root = Preload_Library.getroot()
+    EntityLibrary = Preload_Library_root.find('EntityLibrary')
+    for Library in Entity_Library:
+        New_Element = ET.Element('Library')
+        New_Element.set('Name', Library)
+        EntityLibrary.append(New_Element)
+    ParticlesLibrary = Preload_Library_root.find('ParticlesLibrary')
+    for Library in Particles_Library:
+        New_Element = ET.Element('Library')
+        New_Element.set('Name', Library)
+        ParticlesLibrary.append(New_Element)
+    GameTokensLibrary = Preload_Library_root.find('GameTokensLibrary')
+    for Library in GameTokens_Library:
+        New_Element = ET.Element('Library')
+        New_Element.set('Name', Library)
+        GameTokensLibrary.append(New_Element)
+    ET.indent(Preload_Library, space='\t', level=0)
+    Preload_Library.write(f'{NameLevel}\\Setting\\Preload_Library.xml', encoding='utf-8', xml_declaration=True)
+    print('- The file creation process [Preload_Library.xml] completed.')
+
 def Processing_of_NUX_MOD_SDK_Layers(LevelData, NameLevel, Layers):
     print('- The process of processing the files extracted by [NUX_MOD_SDK] has begun. The duration of the process depends on the size of the level...')
     for file in os.listdir('NUX_MOD_SDK'):
         if file.endswith('.lyr'):
-            LYR_File = ET.parse(f'NUX_MOD_SDK\\{file}').getroot()
-            Layer = LYR_File.find('Layer')
-            for Object in Layer.findall('LayerObjects/Object'):
-                if Object.get('Type') in ['Brush', 'WaterVolume', 'Road']:
-                    Name_LYR = Layer.get('Name')
-                    if Name_LYR == "CLC_0":
-                        Name_LYR = "LE_Unknown_Layer"
-                    if Name_LYR not in Layers:
-                        Create_LYR(Name_LYR, NameLevel)
-                        Layers.append(Name_LYR)
-                    Object.set('Layer', Name_LYR)
-                    Write_to_LYR(Name_LYR, Object, NameLevel)
+            try:
+                LYR_File = ET.parse(f'NUX_MOD_SDK\\{file}').getroot()
+                Layer = LYR_File.find('Layer')
+                for Object in Layer.findall('LayerObjects/Object'):
+                    if Object.get('Type') in ['Brush', 'WaterVolume', 'Road']:
+                        Name_LYR = Layer.get('Name')
+                        if Name_LYR == "CLC_0":
+                            Name_LYR = "LE_Unknown_Layer"
+                        if Name_LYR not in Layers:
+                            Create_LYR(Name_LYR, NameLevel)
+                            Layers.append(Name_LYR)
+                        Object.set('Layer', Name_LYR)
+                        Write_to_LYR(Name_LYR, Object, NameLevel)
+            except Exception as e:
+                print(f'Error: couldn`t process the file [{file}]. Learn more: {e}')
         if file == "vegetationWF.veg":
             VEG_File = ET.parse(f'NUX_MOD_SDK\\{file}').getroot()
             Vegetation = ET.Element('Vegetation')
@@ -486,6 +514,18 @@ def Processing_of_NUX_MOD_SDK_Layers(LevelData, NameLevel, Layers):
                 Terrain_Unit = Terrain.get('UnitSize')
                 os.rename(f'NUX_MOD_SDK\\{file}', f'{NameLevel}\\Setting\\Terrain\\Terrain_{Terrain_Width}x{Terrain_Height}_UnitSize_{Terrain_Unit}.trb')
     print('- The processing of the files extracted by [NUX_MOD_SDK] has been completed.')
+
+def Processing_of_CryDumper_Layer(NameLevel):
+    print('- The process of processing the files extracted by [CryDumper] has begun. The duration of the process depends on the size of the level...')
+    LYR_File = ET.parse(f'CryDumper\\ai_points_dump.lyr').getroot()
+    for Object in LYR_File.findall('Layer/LayerObjects/Object'):
+        if Object.get('Type') == "AIPoint":
+            Object.set('Id', Generate_GUID())
+            Object.set('Layer', 'LE_AIPoints')
+            del Object.attrib['LayerGUID']
+            Write_to_LYR('LE_AIPoints', Object, NameLevel)
+    print('- The processing of the files extracted by [CryDumper] has been completed.')
+
 try:
     if not os.path.exists('level.pak') or not os.path.exists('terraintexture.pak'):
         raise ValueError('The [level.pak] or [terraintexture.pak] archives were not found. Check if these files are in the directory.')
@@ -512,6 +552,11 @@ try:
     LevelData = ET.parse('leveldata.xml').getroot()
     print('- The file was uploaded to the cache: [leveldata.xml]')
     LevelInfo = LevelData.find('LevelInfo')
+    if os.path.exists('ai_spawners_config.xml') is not None:
+        AI_Spawners_Config = ET.parse('ai_spawners_config.xml').getroot()
+        AI_Spawners_Presets = AI_Spawners_Config.findall('preset')
+    else:
+        raise ValueError('The file [ai_spawners_config.xml] not found. Check its presence in the directory.')
     NameLevel = LevelInfo.get('Name')
     print(f'- Level Name: [{NameLevel}]')
     if not os.path.isdir(NameLevel):
@@ -527,9 +572,12 @@ try:
     print(f'- Folder [brush], as well as files [level.pak], [terraintexture.pak], [mission_mission0.xml] and [leveldata.xml] were moved to the created level folder.')
     GUID_Cache = Cache_the_GUID(Mission_Mission0)
     print('- The process of extracting [.lyr] level files has begun. The duration of the process depends on the size of the level...')
-    Layers = ['LE_Unknown_Layer', 'LE_Decals', 'LE_Occluders', 'LE_VisArea', 'LE_Portal', 'LE_SequenceObject', 'LE_Others']
+    Layers = ['LE_AIPoints', 'LE_Unknown_Layer', 'LE_Decals', 'LE_Occluders', 'LE_VisArea', 'LE_Portal', 'LE_SequenceObject', 'LE_Others']
     Entities = []
     Objects = []
+    Entity_Library = []
+    Particles_Library = []
+    GameTokens_Library = []
     for Entity in Mission_Mission0.findall('Objects/Entity'):
         Entities.append(Entity)
         Layer = Entity.get('Layer')
@@ -540,20 +588,33 @@ try:
         Layer = Object.get('Layer')
         if Layer not in Layers and Layer is not None:
             Layers.append(Layer)
+    for LevelDataLayer in LevelData.findall('Layers/Layer'):
+        Layer = LevelDataLayer.get('Name')
+        if Layer not in Layers and Layer is not None and Layer != "":
+            Layers.append(Layer)
+        Layer = LevelDataLayer.get('Parent')
+        if Layer not in Layers and Layer is not None and Layer != "":
+            Layers.append(Layer)
     Layers.sort()
     for Layer in Layers:
         Create_LYR(Layer, NameLevel)
-    Processing_the_Entities_Array(Entities, NameLevel)
+    Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel)
     Processing_the_Objects_Array(Objects, NameLevel)
     print('- The extraction process of [.lyr] level files is completed.')
     Extract_ToD(Mission_Mission0, NameLevel)
     Extract_LightSettings(Mission_Mission0, NameLevel)
     Create_File_TerrainLayerSettings_lay(LevelData, NameLevel)
+    Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, NameLevel)
     if not os.path.isdir('NUX_MOD_SDK'):
         os.mkdir('NUX_MOD_SDK')
     what_NUX = int(input('If you need to extract [Brush], [Road], [WaterVolume], [Vegetation] and [Terrain Block], then transfer all the [.lyr], [.veg]  and [.trb] files that [NUX_MOD_SDK] extracted to the appropriate folder and enter [1], otherwise [0].\nYour choice: '))
     if what_NUX == 1:
         Processing_of_NUX_MOD_SDK_Layers(LevelData, NameLevel, Layers)
+    if not os.path.isdir('CryDumper'):
+        os.mkdir('CryDumper')
+    what_CryDumper = int(input('If you need to extract [AIPoint], then transfer the [ai_points_dump.lyr] file that extracted [CryDumper] to the appropriate folder and enter [1], otherwise [0]. Your choice: '))
+    if what_CryDumper == 1:
+        Processing_of_CryDumper_Layer(NameLevel)
     input('\nThe program has been successfully completed, you can close the program by simply pressing the [Enter] key...')
 except Exception as e:
     e = str(e)
