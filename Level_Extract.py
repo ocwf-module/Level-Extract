@@ -225,6 +225,8 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
         elif Entity.get('Archetype') is not None:
             New_Object.set('Type', 'EntityArchetype')
             Library = Entity.get('Archetype').split('.', 1)[0]
+            if Library not in Entity_Library:
+                Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
             Archetype = Entity.get('Archetype').split('.', 1)[1]
             New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
         elif Entity.get('EntityClass') in ["GeomEntity", "ReverbVolume", "SoundMoodVolume", "SoundSpot", "MusicMoodSelector", "MusicEndTheme", "MusicLogicTrigger", "AmbientVolume", "MusicPlayPattern", "SoundEventSpot", "RandomSoundVolume", "MusicThemeSelector", "MusicStinger", "Dialog", "AIPathPoint", "NavigationSeedPoint", "AIAnchor", "TagPoint", "SmartObject"]:
@@ -234,8 +236,10 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
             SpawnerPreset = Properties.get('SpawnerPreset')
             for Preset in AI_Spawners_Presets:
                 if Preset.get('name') == SpawnerPreset:
-                    Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
-                    break
+                    Library = Entity.get('Archetype').split('.', 1)[0]
+                    if Library not in Entity_Library:
+                        Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
+                        break
         else:
             New_Object.set('Type', 'Entity')
         New_Object.set('Id', Search_GUID(GUID_Cache, Entity.get('EntityId')))
