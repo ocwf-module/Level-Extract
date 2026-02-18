@@ -1,10 +1,7 @@
 import xml.etree.ElementTree as ET
 import os
-import random
-import string
 import zipfile
 from pathlib import Path
-import subprocess
 import shutil
 from shutil import move
 import struct
@@ -13,7 +10,7 @@ import re
 
 def Generate_GUID(): # Код для генерации особого вида UUID (GUID)
     # Версия на C++: https://gist.github.com/fernandomv3/46a6d7656f50ee8d39dc
-    return "{" + str(uuid.uuid4()).upper() + "}" # В качестве альтернативы можно использовать встроенный модуль "uuid"
+    return "{" + str(uuid.uuid4()).upper() + "}" # В качестве альтернативы можно использовать встроенный модуль "uuid" Python
 
 def Generate_GUID_from_GUID64(GUID64): # Конвертируем GUID64 в особый UUID (GUID) для CryEngine
     return "{" + f"{GUID64[8:]}-{GUID64[4:8]}-{GUID64[0:4]}-{GUID64[0:4]}-{GUID64[8:]}{GUID64[0:4]}" + "}"
@@ -304,7 +301,7 @@ def Processing_the_Objects_Array(Objects, NameLevel):
         elif Object.get('Type') == "Portal":
             New_Object.set('EntityClass', 'AreaShape')
             New_Object.set('Rotate', '1,0,0,0')
-            New_Object.set('Layer', 'LE_Portal')
+            New_Object.set('Layer', 'LE_Portals')
             Points_List = Object.findall('Points/Point')
             if Points_List is not None:
                 level = 1
@@ -317,7 +314,7 @@ def Processing_the_Objects_Array(Objects, NameLevel):
         elif Object.get('Type') == "VisArea":
             New_Object.set('EntityClass', 'AreaShape')
             New_Object.set('Rotate', '1,0,0,0')
-            New_Object.set('Layer', 'LE_VisArea')
+            New_Object.set('Layer', 'LE_VisAreas')
             Points_List = Object.findall('Points/Point')
             if Points_List is not None:
                 level = 1
@@ -331,7 +328,7 @@ def Processing_the_Objects_Array(Objects, NameLevel):
             for Sequence in MovieData.findall('Mission/SequenceData/Sequence'):
                 if Object.get('Name') == Sequence.get('Name'):
                     New_Object.append(Sequence)
-            New_Object.set('Layer', 'LE_SequenceObject')
+            New_Object.set('Layer', 'LE_SequenceObjects')
         else:
             if Object.get('Type') is not None:
                 New_Object.set('Type', Object.get('Type'))
@@ -437,16 +434,17 @@ def Extract_LightSettings(Mission_Mission0, NameLevel):
     else:
         print('- The process of extracting a file of the [LightSettings.lgt] was interrupted due to lack of necessary data.')
 
-def Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, NameLevel):
+def Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, LevelDataAction, NameLevel):
     print('- The file creation process has started [Preload_Library.xml]...')
     for ParticlesLibrary in LevelData.findall('ParticlesLibrary/Library'):
-        #print(ParticlesLibrary.get('Name'))
         Particles_Library.append(ParticlesLibrary.get('Name'))
     for GameTokensLibrary in LevelData.findall('GameTokensLibraryReferences/Library'):
-        #print(GameTokensLibrary.get('Name'))
         GameTokens_Library.append(GameTokensLibrary.get('Name'))
+    MusicLibraries = []
+    for MusicLibrary in LevelDataAction.findall('MusicLibrary/Library'):
+        MusicLibraries.append(MusicLibrary.get('Name'))
     with open(f'{NameLevel}\\Setting\\Preload_Library.xml', 'w', encoding='utf-8') as f:
-        f.write('<DataBase Description="It contains the names of libraries that must be imported before importing layers.">\n\t<EntityLibrary>\n\t</EntityLibrary>\n\t<ParticlesLibrary>\n\t</ParticlesLibrary>\n\t<GameTokensLibrary>\n\t</GameTokensLibrary>\n</DataBase>')
+        f.write('<DataBase Description="It contains the names of libraries that must be imported before importing layers.">\n\t<EntityLibrary>\n\t</EntityLibrary>\n\t<ParticlesLibrary>\n\t</ParticlesLibrary>\n\t<GameTokensLibrary>\n\t</GameTokensLibrary>\n\t<MusicLibrary>\n\t</MusicLibrary>\n</DataBase>')
     Preload_Library = ET.parse(f'{NameLevel}\\Setting\\Preload_Library.xml')
     Preload_Library_root = Preload_Library.getroot()
     EntityLibrary = Preload_Library_root.find('EntityLibrary')
@@ -464,6 +462,11 @@ def Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, Level
         New_Element = ET.Element('Library')
         New_Element.set('Name', Library)
         GameTokensLibrary.append(New_Element)
+    MusicLibrary = Preload_Library_root.find('MusicLibrary')
+    for Library in MusicLibraries:
+        New_Element = ET.Element('Library')
+        New_Element.set('Name', Library)
+        MusicLibrary.append(New_Element)
     ET.indent(Preload_Library, space='\t', level=0)
     Preload_Library.write(f'{NameLevel}\\Setting\\Preload_Library.xml', encoding='utf-8', xml_declaration=True)
     print('- The file creation process [Preload_Library.xml] completed.')
@@ -548,6 +551,8 @@ try:
         print('- The file was extracted: [moviedata.xml]')
         zf.extract('leveldata.xml')
         print('- The file was extracted: [leveldata.xml]')
+        zf.extract('leveldataaction.xml')
+        print('- The file was extracted: [leveldataaction.xml]')
     Mission_Mission0 = ET.parse('mission_mission0.xml').getroot()
     print('- The file was uploaded to the cache: [mission_mission0.xml]')
     MovieData = ET.parse('moviedata.xml').getroot()
@@ -556,6 +561,9 @@ try:
     LevelData = ET.parse('leveldata.xml').getroot()
     print('- The file was uploaded to the cache: [leveldata.xml]')
     LevelInfo = LevelData.find('LevelInfo')
+    LevelDataAction = ET.parse('leveldataaction.xml').getroot()
+    os.remove('leveldataaction.xml')
+    print('- The file was uploaded to the cache and deleted: [leveldataaction.xml]')
     if os.path.exists('ai_spawners_config.xml') is not None:
         AI_Spawners_Config = ET.parse('ai_spawners_config.xml').getroot()
         AI_Spawners_Presets = AI_Spawners_Config.findall('preset')
@@ -576,7 +584,7 @@ try:
     print(f'- Folder [brush], as well as files [level.pak], [terraintexture.pak], [mission_mission0.xml] and [leveldata.xml] were moved to the created level folder.')
     GUID_Cache = Cache_the_GUID(Mission_Mission0)
     print('- The process of extracting [.lyr] level files has begun. The duration of the process depends on the size of the level...')
-    Layers = ['LE_AIPoints', 'LE_Unknown_Layer', 'LE_Decals', 'LE_Occluders', 'LE_VisArea', 'LE_Portal', 'LE_SequenceObject', 'LE_Others']
+    Layers = ['LE_AIPoints', 'LE_Unknown_Layer', 'LE_Decals', 'LE_Occluders', 'LE_VisAreas', 'LE_Portals', 'LE_SequenceObjects', 'LE_Others']
     Entities = []
     Objects = []
     Entity_Library = []
@@ -608,7 +616,7 @@ try:
     Extract_ToD(Mission_Mission0, NameLevel)
     Extract_LightSettings(Mission_Mission0, NameLevel)
     Create_File_TerrainLayerSettings_lay(LevelData, NameLevel)
-    Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, NameLevel)
+    Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, LevelDataAction, NameLevel)
     if not os.path.isdir('NUX_MOD_SDK'):
         os.mkdir('NUX_MOD_SDK')
     what_NUX = int(input('If you need to extract [Brush], [Road], [WaterVolume], [Vegetation] and [Terrain Block], then transfer all the [.lyr], [.veg]  and [.trb] files that [NUX_MOD_SDK] extracted to the appropriate folder and enter [1], otherwise [0].\nYour choice: '))
