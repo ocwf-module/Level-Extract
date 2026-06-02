@@ -54,6 +54,8 @@ def Search_GUID(GUID_Cache, EntityId):
     for Value in GUID_Cache:
         if Value.attrib['EntityId'] == EntityId:
             return Value.attrib['GUID']
+    else:
+        print(f"⚠️ [{EntityId}] not found in [GUID_Cache.xml]!")
 
 def Search_Archetype_GUID(Library, Archetype):
     for file in os.listdir('EntityArchetypes'):
@@ -64,10 +66,10 @@ def Search_Archetype_GUID(Library, Archetype):
                     if EntityPrototype.attrib['Name'] == Archetype:
                         return EntityPrototype.attrib['Id']
                 else:
-                    print(f"⚠️ [{Archetype}] was not found in the database!")
+                    print(f"⚠️ [{Archetype}] was not found in the database [{EntityPrototypeLibrary}]!")
                     return "{00000000-0000-0000-0000-000000000000}"
     else:
-        print(f"⚠️ [{Archetype}] was not found in the database!")
+        print(f"⚠️ [{Archetype}] was not found in the database [Libs\\EntityArchetypes\\]!")
         return "{00000000-0000-0000-0000-000000000000}"
 
 def Coordinate_Subtraction(pos, point):
@@ -221,22 +223,30 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
             New_Object.set('Type', 'EnvironmentProbe')
         elif Entity.get('Archetype') is not None:
             New_Object.set('Type', 'EntityArchetype')
-            Library = Entity.get('Archetype').split('.', 1)[0]
-            if Library not in Entity_Library:
-                Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
-            Archetype = Entity.get('Archetype').split('.', 1)[1]
-            New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
-        elif Entity.get('EntityClass') in ["GeomEntity", "ReverbVolume", "SoundMoodVolume", "SoundSpot", "MusicMoodSelector", "MusicEndTheme", "MusicLogicTrigger", "AmbientVolume", "MusicPlayPattern", "SoundEventSpot", "RandomSoundVolume", "MusicThemeSelector", "MusicStinger", "Dialog", "AIPathPoint", "NavigationSeedPoint", "AIAnchor", "TagPoint", "SmartObject"]:
-            New_Object.set('Type', Entity.get('EntityClass'))
+            Library = Entity.get('Archetype')
+            if Library is not None:
+                Library = Library.split('.', 1)[0]
+                if Library not in Entity_Library:
+                    Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
+            Archetype = Entity.get('Archetype')
+            if Archetype not in None:
+                Archetype = Archetype.split('.', 1)[1]
+                New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
         elif Entity.get('EntityClass') == "AISpawner":
             Properties = Entity.find('Properties')
             SpawnerPreset = Properties.get('SpawnerPreset')
             for Preset in AI_Spawners_Presets:
                 if Preset.get('name') == SpawnerPreset:
-                    Library = Entity.get('Archetype').split('.', 1)[0]
-                    if Library not in Entity_Library:
-                        Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
-                        break
+                    Library = Entity.get('Archetype')
+                    if Library is not None:
+                        Library = Library.split('.', 1)[0]
+                        if Library not in Entity_Library:
+                            Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
+                            break
+            else:
+                print(f"⚠️ The library for the preset [{SpawnerPreset}] was not found!")
+        elif Entity.get('EntityClass') in ["GeomEntity", "ReverbVolume", "SoundMoodVolume", "SoundSpot", "MusicMoodSelector", "MusicEndTheme", "MusicLogicTrigger", "AmbientVolume", "MusicPlayPattern", "SoundEventSpot", "RandomSoundVolume", "MusicThemeSelector", "MusicStinger", "Dialog", "AIPathPoint", "NavigationSeedPoint", "AIAnchor", "TagPoint", "SmartObject"]:
+            New_Object.set('Type', Entity.get('EntityClass'))
         else:
             New_Object.set('Type', 'Entity')
         New_Object.set('Id', Search_GUID(GUID_Cache, Entity.get('EntityId')))
@@ -520,7 +530,10 @@ def Processing_of_NUX_MOD_SDK_Layers(LevelData, NameLevel, Layers):
                 Terrain_Height = Terrain.get('Height')
                 Terrain_Unit = Terrain.get('UnitSize')
                 os.rename(f'NUX_MOD_SDK\\{file}', f'{NameLevel}\\Setting\\Terrain\\Terrain_{Terrain_Width}x{Terrain_Height}_UnitSize_{Terrain_Unit}.trb')
-    print('- The processing of the files extracted by [NUX_MOD_SDK] has been completed.')
+                print('- The processing of the files extracted by [NUX_MOD_SDK] has been completed.')
+            else:
+                os.rename(f'NUX_MOD_SDK\\{file}', f'{NameLevel}\\Setting\\Terrain\\Terrain_XxX_UnitSize_X.trb')
+                print('- The process of renaming the [terrain.trb] file was interrupted due to the lack of necessary data. The file was copied to the working directory without details in the name.')
 
 def Processing_of_CryDumper_Layer(NameLevel):
     print('- The process of processing the files extracted by [CryDumper] has begun. The duration of the process depends on the size of the level...')
@@ -619,12 +632,12 @@ try:
     Extract_Library(Entity_Library, Particles_Library, GameTokens_Library, LevelData, LevelDataAction, NameLevel)
     if not os.path.isdir('NUX_MOD_SDK'):
         os.mkdir('NUX_MOD_SDK')
-    what_NUX = int(input('If you need to extract [Brush], [Road], [WaterVolume], [Vegetation] and [Terrain Block], then transfer all the [.lyr], [.veg]  and [.trb] files that [NUX_MOD_SDK] extracted to the appropriate folder and enter [1], otherwise [0].\nYour choice: '))
+    what_NUX = int(input('\nIf you need to extract [Brush], [Road], [WaterVolume], [Vegetation] and [Terrain Block], then transfer all the [.lyr], [.veg]  and [.trb] files that [NUX_MOD_SDK] extracted to the appropriate folder and enter [1], otherwise [0].\nYour choice: '))
     if what_NUX == 1:
         Processing_of_NUX_MOD_SDK_Layers(LevelData, NameLevel, Layers)
     if not os.path.isdir('CryDumper'):
         os.mkdir('CryDumper')
-    what_CryDumper = int(input('If you need to extract [AIPoint], then transfer the [ai_points_dump.lyr] file that extracted [CryDumper] to the appropriate folder and enter [1], otherwise [0]. Your choice: '))
+    what_CryDumper = int(input('\nIf you need to extract [AIPoint], then transfer the [ai_points_dump.lyr] file that extracted [CryDumper] to the appropriate folder and enter [1], otherwise [0]. Your choice: '))
     if what_CryDumper == 1:
         Processing_of_CryDumper_Layer(NameLevel)
     input('\nThe program has been successfully completed, you can close the program by simply pressing the [Enter] key...')
