@@ -232,19 +232,17 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
             if Archetype is not None:
                 Archetype = Archetype.split('.', 1)[1]
                 New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
-        elif Entity.get('EntityClass') == "AISpawner":
+        elif Entity.get('EntityClass') in ["AISpawner", "SpawnableAIProxy", "AISpawnerEx"]:
             Properties = Entity.find('Properties')
             SpawnerPreset = Properties.get('SpawnerPreset')
             for Preset in AI_Spawners_Presets:
                 if Preset.get('name') == SpawnerPreset:
-                    Library = Entity.get('Archetype')
+                    Library = Preset.get('archetype')
                     if Library is not None:
                         Library = Library.split('.', 1)[0]
                         if Library not in Entity_Library:
                             Entity_Library.append(Library)
                             break
-            else:
-                print(f"⚠️ The library for the preset [{SpawnerPreset}] was not found!")
         elif Entity.get('EntityClass') in ["GeomEntity", "ReverbVolume", "SoundMoodVolume", "SoundSpot", "MusicMoodSelector", "MusicEndTheme", "MusicLogicTrigger", "AmbientVolume", "MusicPlayPattern", "SoundEventSpot", "RandomSoundVolume", "MusicThemeSelector", "MusicStinger", "Dialog", "AIPathPoint", "NavigationSeedPoint", "AIAnchor", "TagPoint", "SmartObject"]:
             New_Object.set('Type', Entity.get('EntityClass'))
         else:
