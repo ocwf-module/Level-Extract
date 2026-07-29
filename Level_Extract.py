@@ -233,6 +233,7 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
                 Archetype = Archetype.split('.', 1)[1]
                 New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
         elif Entity.get('EntityClass') in ["AISpawner", "SpawnableAIProxy", "AISpawnerEx"]:
+            New_Object.set('Type', 'Entity')
             Properties = Entity.find('Properties')
             SpawnerPreset = Properties.get('SpawnerPreset')
             for Preset in AI_Spawners_Presets:
