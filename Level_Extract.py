@@ -227,9 +227,9 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
             if Library is not None:
                 Library = Library.split('.', 1)[0]
                 if Library not in Entity_Library:
-                    Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
+                    Entity_Library.append(Library)
             Archetype = Entity.get('Archetype')
-            if Archetype not in None:
+            if Archetype is not None:
                 Archetype = Archetype.split('.', 1)[1]
                 New_Object.set('Prototype', Search_Archetype_GUID(Library, Archetype))
         elif Entity.get('EntityClass') == "AISpawner":
@@ -241,7 +241,7 @@ def Processing_the_Entities_Array(Entities, AI_Spawners_Presets, NameLevel):
                     if Library is not None:
                         Library = Library.split('.', 1)[0]
                         if Library not in Entity_Library:
-                            Entity_Library.append(Entity.get('Archetype').split('.', 1)[0])
+                            Entity_Library.append(Library)
                             break
             else:
                 print(f"⚠️ The library for the preset [{SpawnerPreset}] was not found!")
@@ -589,7 +589,10 @@ try:
         for Folder in Folders:
             os.mkdir(Folder)
             print(f'- A new directory has been created: [{Folder}]')
-    shutil.move('brush', f'{NameLevel}\\brush')
+    try:
+        shutil.move('brush', f'{NameLevel}\\brush')
+    except:
+        None
     move('mission_mission0.xml', f'{NameLevel}\\Setting\\')
     move('leveldata.xml', f'{NameLevel}\\Setting\\')
     move('level.pak', f'{NameLevel}\\')
